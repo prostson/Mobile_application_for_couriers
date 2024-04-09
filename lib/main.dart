@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:yandex_mapkit/yandex_mapkit.dart';
 
@@ -58,19 +57,41 @@ class DeliveryHomePage extends StatelessWidget {
   }
 }
 
-class OrderListPage extends StatelessWidget {
+class OrderListPage extends StatefulWidget {
+  @override
+  _OrderListPageState createState() => _OrderListPageState();
+}
+
+class _OrderListPageState extends State<OrderListPage> {
+  List<OrderItem> orders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    orders = [
+      OrderItem(orderNumber: '123', customerName: 'Иванов', address: 'ул. Пушкина, 10', onOrderComplete: removeOrder),
+      OrderItem(orderNumber: '456', customerName: 'Петров', address: 'ул. Лермонтова, 5', onOrderComplete: removeOrder),
+      OrderItem(orderNumber: '789', customerName: 'Сидоров', address: 'ул. Гоголя, 3', onOrderComplete: removeOrder),
+    ];
+  }
+
+  void removeOrder(String orderNumber) {
+    setState(() {
+      orders.removeWhere((order) => order.orderNumber == orderNumber);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Список заказов'),
       ),
-      body: ListView(
-        children: [
-          OrderItem(orderNumber: '123', customerName: 'Иванов', address: 'ул. Пушкина, 10'),
-          OrderItem(orderNumber: '456', customerName: 'Петров', address: 'ул. Лермонтова, 5'),
-          OrderItem(orderNumber: '789', customerName: 'Сидоров', address: 'ул. Гоголя, 3'),
-        ],
+      body: ListView.builder(
+        itemCount: orders.length,
+        itemBuilder: (context, index) {
+          return orders[index];
+        },
       ),
     );
   }
@@ -80,11 +101,13 @@ class OrderItem extends StatelessWidget {
   final String orderNumber;
   final String customerName;
   final String address;
+  final Function(String) onOrderComplete;
 
   const OrderItem({
     required this.orderNumber,
     required this.customerName,
     required this.address,
+    required this.onOrderComplete,
   });
 
   @override
@@ -101,18 +124,38 @@ class OrderItem extends StatelessWidget {
       trailing: IconButton(
         icon: Icon(Icons.check),
         onPressed: () {
-          // Действие при нажатии на кнопку
           showDialog(
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
                 title: Text('Заказ выполнен'),
-                content: Text('Заказ №$orderNumber выполнен!'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Заказ №$orderNumber выполнен!'),
+                    SizedBox(height: 8),
+                    Text('Показать адрес на карте?'),
+                  ],
+                ),
                 actions: [
                   TextButton(
-                    child: Text('OK'),
+                    child: Text('Да'),
                     onPressed: () {
                       Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MapScreen(address: address),
+                        ),
+                      );
+                    },
+                  ),
+                  TextButton(
+                    child: Text('Нет'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onOrderComplete(orderNumber);
                     },
                   ),
                 ],
@@ -121,51 +164,35 @@ class OrderItem extends StatelessWidget {
           );
         },
       ),
-      onTap: () {
-        // Открыть экран с картой и отобразить адрес доставки
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => MapPage(address: address)),
-        );
-      },
     );
   }
 }
 
-class MapPage extends StatefulWidget {
+class MapScreen extends StatelessWidget {
   final String address;
 
-  const MapPage({required this.address});
-
-  @override
-  _MapPageState createState() => _MapPageState();
-}
-
-class _MapPageState extends State<MapPage> {
-  YandexMapController? _mapController;
+  const MapScreen({required this.address});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Карта'),
+        title: Text('Карта адреса'),
       ),
-      body: YandexMap(
-    onMapCreated: (controller) {
-      setState(() {
-        _mapController = controller;
-      });
-    },
-    onMapTap: (point) {
-      print('Тап по карте: $point');
-    },
-    onMapLongTap: (point) {
-      print('Долгий тап по карте: $point');
-    },
-    onObjectTap: (objectId) {
-      print('Тап по объекту на карте: $objectId');
-    },
-  ),
-);
+      body: Center(
+        child: YandexMap(
+          onMapCreated: (YandexMapController controller) {
+            // You can use the controller to interact with the map
+            // Set up a marker at the specified address
+            controller.addPlacemark(Placemark(
+              point: Point(latitude, longitude), // Use the actual coordinates of the address
+              style: PlacemarkStyle(
+                iconName: 'assets/marker.png', // Add a custom marker icon if desired
+              ),
+            ));
+          },
+        ),
+      ),
+    );
   }
 }
